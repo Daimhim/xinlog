@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- 自动初始化：宿主 app 启动时该 Provider 的 onCreate 会先于 Application 之后早期执行 -->
+        <provider
+            android:name="com.xinxin.xinlog.XinLogInitProvider"
+            android:authorities="${applicationId}.xinloginit"
+            android:exported="false"
+            android:initOrder="100" />
+    </application>
+</manifest>
