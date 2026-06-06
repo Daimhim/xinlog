@@ -15,7 +15,7 @@ dependencyResolutionManagement {
 ```
 2. app 模块 `build.gradle(.kts)` 加依赖：
 ```kotlin
-implementation("com.github.daimhim:xinlog:1.1")
+implementation("com.github.daimhim:xinlog:1.2")
 ```
 3. **完成**。SDK 会自动初始化(无需写 init)，自动捕获崩溃和 ANR 并上报。`minSdk 21`，`INTERNET` 权限随 SDK 自动合并。
 

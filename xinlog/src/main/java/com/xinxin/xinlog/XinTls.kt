@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream
 import java.net.InetAddress
 import java.net.Socket
 import java.security.KeyStore
-import java.security.cert.CertificateException
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
@@ -70,46 +69,31 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
         }
     }
 
-    private fun systemTrustManager(): X509TrustManager {
-        val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
-        tmf.init(null as KeyStore?)
-        return tmf.trustManagers.filterIsInstance<X509TrustManager>().first()
-    }
-
-    private fun bundledTrustManager(): X509TrustManager {
-        val cert = CertificateFactory.getInstance("X.509").let { cf ->
+    private fun isrgRootX1(): X509Certificate =
+        CertificateFactory.getInstance("X.509").let { cf ->
             ByteArrayInputStream(ISRG_ROOT_X1.toByteArray()).use {
                 cf.generateCertificate(it) as X509Certificate
             }
         }
-        val ks = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-            load(null, null)
-            setCertificateEntry("isrg-root-x1", cert)
-        }
-        val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
-        tmf.init(ks)
-        return tmf.trustManagers.filterIsInstance<X509TrustManager>().first()
-    }
 
-    /** 系统库验不过(老设备缺 ISRG Root X1) 再用内置根补验。 */
+    /**
+     * 信任锚 = 系统受信根(AndroidCAStore 全量) ∪ 内置 ISRG Root X1，合并进一个 KeyStore 后用标准
+     * TrustManagerFactory 生成平台原生 TrustManagerImpl。系统根照常生效，老设备额外补上 ISRG Root X1。
+     */
     private fun buildTrustManager(): X509TrustManager {
-        val system = systemTrustManager()
-        val bundled = bundledTrustManager()
-        return object : X509TrustManager {
-            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
-                try {
-                    system.checkServerTrusted(chain, authType)
-                } catch (_: CertificateException) {
-                    bundled.checkServerTrusted(chain, authType)
-                }
+        val ks = KeyStore.getInstance(KeyStore.getDefaultType()).apply { load(null, null) }
+        var n = 0
+        runCatching {
+            val sys = KeyStore.getInstance("AndroidCAStore").apply { load(null) }
+            val aliases = sys.aliases()
+            while (aliases.hasMoreElements()) {
+                sys.getCertificate(aliases.nextElement())?.let { ks.setCertificateEntry("sys${n++}", it) }
             }
-
-            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) =
-                system.checkClientTrusted(chain, authType)
-
-            override fun getAcceptedIssuers(): Array<X509Certificate> =
-                system.acceptedIssuers + bundled.acceptedIssuers
         }
+        ks.setCertificateEntry("isrg-root-x1", isrgRootX1())
+        val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+        tmf.init(if (n > 0) ks else null as KeyStore?)
+        return tmf.trustManagers.filterIsInstance<X509TrustManager>().first()
     }
 
     /** 在每个新建 SSLSocket 上启用 TLSv1.2/1.3（API21/22 默认不开 TLS1.2，Let's Encrypt 要求 1.2+）。 */
