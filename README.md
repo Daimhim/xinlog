@@ -15,7 +15,7 @@ dependencyResolutionManagement {
 ```
 2. app 模块 `build.gradle(.kts)` 加依赖：
 ```kotlin
-implementation("com.github.daimhim:xinlog:1.0")
+implementation("com.github.daimhim:xinlog:1.1")
 ```
 3. **完成**。SDK 会自动初始化(无需写 init)，自动捕获崩溃和 ANR 并上报。`minSdk 21`，`INTERNET` 权限随 SDK 自动合并。
 
@@ -62,6 +62,9 @@ XinLog.maxEntries = 1000
 XinLog.maxBytes = 1_000_000
 XinLog.maxAgeMs = 7L*24*3600*1000
 ```
+
+## 老设备 TLS 兼容（自动，1.1+）
+默认上报端点是 Let's Encrypt 证书(根 ISRG Root X1)。该根 **Android 7.1.1 才进系统信任库**，旧的交叉签名已过期，导致 **Android 5.0–7.0** 老设备上报时 `CertPathValidatorException: Trust anchor not found`，崩溃日志静默发不出去。SDK 内置 `XinTls`：上报走 HTTPS 时自动套上「系统库 ∪ 内置 ISRG Root X1」的 TrustManager，并强制 TLSv1.2/1.3(API21/22 默认不开 TLS1.2)，覆盖 API21+ 全部设备。纯 JDK 实现、零三方依赖、对新设备无副作用(仅追加信任锚)。换非 Let's Encrypt 端点也无害(系统库照常优先)。
 
 ## 已知限制
 - **Android ≤10 的原生(NDK/C++)崩溃**不捕获(11+ 由系统 `ApplicationExitInfo` 覆盖)；如需全版本原生捕获要另接 native 模块；

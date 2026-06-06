@@ -17,6 +17,7 @@ import java.io.StringWriter
 import java.io.PrintWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -200,6 +201,9 @@ object XinLog {
             body.put("entries", arr)
 
             val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                // 老设备(Android5~7.0) TLS 兜底：HTTPS 时换上「系统库∪内置ISRG Root X1」+ TLS1.2/1.3 的 SocketFactory，
+                // 否则 Let's Encrypt 端点在老设备上 Trust anchor not found，崩溃日志永远传不上来。
+                if (this is HttpsURLConnection) XinTls.socketFactory?.let { sslSocketFactory = it }
                 requestMethod = "POST"
                 connectTimeout = 10_000
                 readTimeout = 15_000
